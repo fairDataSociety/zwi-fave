@@ -46,6 +46,7 @@ const (
 	ChunkUploadDownloadUrl = "/chunks"
 	BytesUploadDownloadUrl = "/bytes"
 	pinsUrl                = "/pins/"
+	healthUrl = "/health"
 	blobsUrl               = "/bytes/" // need to change this when bee supports it
 	postageBatchUrl        = "/stamps/"
 	SwarmPinHeader         = "Swarm-Pin"
@@ -115,8 +116,14 @@ func socResource(owner, id, sig string) string {
 }
 
 // CheckConnection is used to check if the nbe client is up and running.
-func (s *BeeClient) CheckConnection() bool {
-	req, err := http.NewRequest(http.MethodGet, s.url, nil)
+func (s *BeeClient) CheckConnection(isProxy bool) bool {
+	url := s.url
+	matchString := "Ethereum Swarm Bee\n"
+	if isProxy {
+		url += healthUrl
+		matchString = "OK"
+	}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return false
 	}
@@ -138,7 +145,7 @@ func (s *BeeClient) CheckConnection() bool {
 		return false
 	}
 
-	if string(data) != "Ethereum Swarm Bee\n" {
+	if string(data) != matchString {
 		return false
 	}
 	return true

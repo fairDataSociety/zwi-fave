@@ -62,7 +62,7 @@ func handleCachedResponse(cr *CachedResponse, w http.ResponseWriter, r *http.Req
 // the handler receiving http request
 func wikiHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Path[6:]
-
+	fmt.Println(url)
 	// lookup in the cache for a cached response
 	if cr, iscached := cacheLookup(url); iscached {
 		handleCachedResponse(cr, w, r)
@@ -74,7 +74,9 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			return
 		}
-
+		if d == nil {
+			return
+		}
 		mime := ""
 		entryType := ""
 		redirect := ""
@@ -164,7 +166,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-
 	if sr.Total > 0 {
 		d["Info"] = fmt.Sprintf("%d matches for query [%s], took %s", sr.Total, q, sr.Took)
 

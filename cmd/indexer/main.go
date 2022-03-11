@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	zim "github.com/akhenakh/gozim"
 	"github.com/blevesearch/bleve"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
 	"github.com/onepeerlabs/w3kipedia/pkg/bee"
-	"github.com/onepeerlabs/w3kipedia/pkg/limiter"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,6 +29,7 @@ type article struct {
 var (
 	indexPath = flag.String("index", "", "path for the index file")
 	beeHost   = flag.String("bee", "", "Bee API endpoint")
+	beeIsProxy   = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
 	batch     = flag.String("batch", "", "Bee Postage Stamp ID")
 	zimPath   = flag.String("zim", "", "zim file location")
 )
@@ -58,7 +59,7 @@ func main() {
 		*batch,
 		logger,
 	)
-	if !b.CheckConnection() {
+	if !b.CheckConnection(*beeIsProxy) {
 		log.Fatal("connection unavailable")
 	}
 	bleve.Config.DefaultKVStore = "boltdb"
@@ -87,7 +88,6 @@ func main() {
 
 	index, err := bleve.New(*indexPath, mapping)
 	if err != nil {
-		fmt.Println("asdasd")
 		log.Fatal(err)
 	}
 	defer index.Close()
@@ -101,53 +101,54 @@ func main() {
 	upload
 	*/
 	z.ListArticles()
-	limit := limiter.NewConcurrencyLimiter(10)
 
 	z.ListTitlesPtrIterator(func(idx uint32) {
-		limit.Execute(func() {
-			a, err := z.ArticleAtURLIdx(idx)
-			if err != nil || a.EntryType == zim.DeletedEntry {
+		a, err := z.ArticleAtURLIdx(idx)
+		if err != nil || a.EntryType == zim.DeletedEntry {
+			return
+		}
+		redirectURL := ""
+		data, err := a.Data()
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		if len(data) == 0 {
+			return
+		}
+		if a.EntryType == zim.RedirectEntry {
+			ridx, err := a.RedirectIndex()
+			if err != nil {
 				return
 			}
-			redirectURL := ""
-			if a.EntryType == zim.RedirectEntry {
-				ridx, err := a.RedirectIndex()
-				fmt.Println(ridx)
-				if err != nil {
-					return
-				}
-				ra, err := z.ArticleAtURLIdx(ridx)
-				if err != nil {
-					return
-				}
-				redirectURL = ra.FullURL()
-			}
-			data, err := a.Data()
+			ra, err := z.ArticleAtURLIdx(ridx)
 			if err != nil {
-				log.Fatal(err.Error())
+				return
 			}
-			address, err := b.UploadBlob(data, true, true)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			fmt.Println(len(data), a.EntryType, a.Title, a.FullURL(), hex.EncodeToString(address))
-			idoc := article{
-				Title:       a.Title,
-				Namespace:   string(a.Namespace),
-				Content:     string(data),
-				FullURL:     a.FullURL(),
-				MimeType:    a.MimeType(),
-				EntryType:   fmt.Sprintf("%d", a.EntryType),
-				Address:     hex.EncodeToString(address),
-				RedirectURL: redirectURL,
-			}
-			err = index.Index(a.FullURL(), idoc)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-		})
-
+			redirectURL = ra.FullURL()
+		}
+		title := a.Title
+		if title == "" {
+			title = filepath.Base(a.FullURL())
+		}
+		address, err := b.UploadBlob(data, true, true)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Failed to upload %s : %s", a.FullURL(), err.Error()))
+			return
+		}
+		fmt.Println(a.FullURL(), hex.EncodeToString(address), len(data))
+		idoc := article{
+			Title:       title,
+			Namespace:   string(a.Namespace),
+			FullURL:     a.FullURL(),
+			MimeType:    a.MimeType(),
+			EntryType:   fmt.Sprintf("%d", a.EntryType),
+			Address:     hex.EncodeToString(address),
+			RedirectURL: redirectURL,
+		}
+		err = index.Index(a.FullURL(), idoc)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
 	})
-	limit.Wait()
 	fmt.Println("w3kipedia")
 }

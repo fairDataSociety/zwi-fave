@@ -36,6 +36,7 @@ var (
 	port      = flag.Int("port", -1, "port to listen to, read HOST env if not specified, default to 8080 otherwise")
 	indexPath = flag.String("index", "", "path for the index file")
 	beeHost   = flag.String("bee", "", "Bee API endpoint")
+	beeIsProxy   = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
 	batch     = flag.String("batch", "", "Bee Postage Stamp ID")
 
 	B *bee.BeeClient
@@ -88,7 +89,7 @@ func main() {
 		*batch,
 		logger,
 	)
-	if !B.CheckConnection() {
+	if !B.CheckConnection(*beeIsProxy) {
 		log.Fatal("connection unavailable")
 	}
 
