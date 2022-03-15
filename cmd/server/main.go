@@ -3,11 +3,14 @@ package main
 
 import (
 	"embed"
+	"encoding/hex"
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/blevesearch/bleve"
@@ -23,6 +26,9 @@ const (
 	RedirectResponse ResponseType = iota
 	DataResponse
 	NoResponse
+
+	storeRef = "7d76c8373ce8bcf635cb62e746f39de7278dfc189e887a904a69b19ad6fe616884a4e7da1357e9f597bb053c39ea6da4ffb8f9661e328aa4a6dfc15cb6ecb609"
+	metaRef  = "3a4758cafe8c5fc07c043ac7ec8b9e86238d3f87d44f659696ba9879315cc6727e96966e2fc91604194f063cbf96ddfd249e6a86540a4e16b9afafa6e44c3f3a"
 )
 
 // CachedResponse cache the answer to an URL in the zim
@@ -33,11 +39,10 @@ type CachedResponse struct {
 }
 
 var (
-	port      = flag.Int("port", -1, "port to listen to, read HOST env if not specified, default to 8080 otherwise")
-	indexPath = flag.String("index", "", "path for the index file")
-	beeHost   = flag.String("bee", "", "Bee API endpoint")
-	beeIsProxy   = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
-	batch     = flag.String("batch", "", "Bee Postage Stamp ID")
+	port       = flag.Int("port", -1, "port to listen to, read HOST env if not specified, default to 8080 otherwise")
+	indexPath  = flag.String("index", "", "path for the index file")
+	beeHost    = flag.String("bee", "", "Bee API endpoint")
+	beeIsProxy = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
 
 	B *bee.BeeClient
 	// Cache is filled with CachedResponse to avoid hitting the zim file for a zim URL
@@ -67,32 +72,66 @@ func main() {
 		log.Fatal("please input bee endpoint")
 	}
 
-	if batch == nil || *batch == "" {
-		log.Fatal("please input batch-id")
-	}
-
-	if _, err := os.Stat(*indexPath); err != nil {
-		log.Fatal(err)
-	}
-
-	// open the db
-	var err error
-	index, err = bleve.Open(*indexPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	logger := logging.New(os.Stdout, logrus.ErrorLevel)
 	B = bee.NewBeeClient(
 		*beeHost,
 		"",
-		*batch,
+		"",
 		logger,
 	)
 	if !B.CheckConnection(*beeIsProxy) {
 		log.Fatal("connection unavailable")
 	}
+	// open the db
+	_, err := os.Lstat(*indexPath)
+	if os.IsNotExist(err) {
+		fmt.Println("Hold tight. Downloading index....")
+		err = os.MkdirAll(*indexPath, 0777)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// downloadMeta
+		metaHex, err := hex.DecodeString(metaRef)
+		if err != nil {
+			log.Fatal(err)
+		}
+		metaData, _, err := B.DownloadBlob(metaHex)
+		if err != nil {
+			log.Fatal(err)
+		}
+		metaFile, err := os.Create(filepath.Join(*indexPath, "index_meta.json"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer metaFile.Close()
+		_, err = metaFile.Write(metaData)
+		if err != nil {
+			log.Fatal(err)
+		}
 
+		storeHex, err := hex.DecodeString(storeRef)
+		if err != nil {
+			log.Fatal(err)
+		}
+		storeData, _, err := B.DownloadBlob(storeHex)
+		if err != nil {
+			log.Fatal(err)
+		}
+		storeFile, err := os.Create(filepath.Join(*indexPath, "store"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer storeFile.Close()
+		_, err = storeFile.Write(storeData)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	index, err = bleve.Open(*indexPath)
+	if err != nil {
+		log.Fatal(err)
+	}
 	tpls, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		log.Fatal(err)

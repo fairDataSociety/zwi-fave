@@ -7,10 +7,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	zim "github.com/akhenakh/gozim"
 	"github.com/blevesearch/bleve"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
+	"github.com/jdkato/prose/v2"
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/onepeerlabs/w3kipedia/pkg/bee"
 	"github.com/sirupsen/logrus"
 )
@@ -26,12 +30,18 @@ type article struct {
 	RedirectURL string
 }
 
+type kv struct {
+	Key   string
+	Value int
+}
+
 var (
-	indexPath = flag.String("index", "", "path for the index file")
-	beeHost   = flag.String("bee", "", "Bee API endpoint")
+	indexPath    = flag.String("index", "", "path for the index file")
+	beeHost      = flag.String("bee", "", "Bee API endpoint")
 	beeIsProxy   = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
-	batch     = flag.String("batch", "", "Bee Postage Stamp ID")
-	zimPath   = flag.String("zim", "", "zim file location")
+	batch        = flag.String("batch", "", "Bee Postage Stamp ID")
+	zimPath      = flag.String("zim", "", "zim file location")
+	indexContent = flag.Bool("content", false, "should index content tags or not (indexing process will be faster if false)")
 )
 
 func main() {
@@ -86,9 +96,18 @@ func main() {
 	articleMapping.AddFieldMappingsAt("Address", nonIndexMapping)
 	articleMapping.AddFieldMappingsAt("RedirectURL", nonIndexMapping)
 
-	index, err := bleve.New(*indexPath, mapping)
-	if err != nil {
-		log.Fatal(err)
+	var index bleve.Index
+	_, err := os.Lstat(*indexPath)
+	if os.IsNotExist(err) {
+		index, err = bleve.New(*indexPath, mapping)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		index, err = bleve.Open(*indexPath)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	defer index.Close()
 
@@ -97,10 +116,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	/*  read zim
-	upload
-	*/
-	z.ListArticles()
 
 	z.ListTitlesPtrIterator(func(idx uint32) {
 		a, err := z.ArticleAtURLIdx(idx)
@@ -111,6 +126,18 @@ func main() {
 		data, err := a.Data()
 		if err != nil {
 			log.Fatal(err.Error())
+		}
+		tags := ""
+		if a.MimeType() == "text/html" && *indexContent {
+			p := bluemonday.StripTagsPolicy()
+			html := p.SanitizeBytes(data)
+			doc, err := prose.NewDocument(string(html))
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// Iterate over the doc's tokens:
+			tags = strings.Join(mostWords(doc.Tokens(), 10), " ")
 		}
 		if len(data) == 0 {
 			return
@@ -144,11 +171,58 @@ func main() {
 			EntryType:   fmt.Sprintf("%d", a.EntryType),
 			Address:     hex.EncodeToString(address),
 			RedirectURL: redirectURL,
+			Content:     tags,
 		}
 		err = index.Index(a.FullURL(), idoc)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 	})
-	fmt.Println("w3kipedia")
+	indexMeta, err := os.ReadFile(filepath.Join(*indexPath, "index_meta.json"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	indexMetaAddress, err := b.UploadBlob(indexMeta, true, true)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Failed to upload index meta : %s", err.Error()))
+		return
+	}
+	fmt.Println("index meta hash : ", hex.EncodeToString(indexMetaAddress))
+
+	indexStore, err := os.ReadFile(filepath.Join(*indexPath, "store"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	indexStoreAddress, err := b.UploadBlob(indexStore, true, true)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Failed to upload index store : %s", err.Error()))
+		return
+	}
+	fmt.Println("index store hash :", hex.EncodeToString(indexStoreAddress))
+}
+
+func mostWords(input []prose.Token, count int) (top []string) {
+	top = make([]string, count)
+	var ss []kv
+	wc := make(map[string]int)
+	for _, tok := range input {
+		if tok.Tag == "NNP" && len(tok.Text) > 2 {
+			_, matched := wc[tok.Text]
+			if matched {
+				wc[tok.Text] += 1
+			} else {
+				wc[tok.Text] = 1
+			}
+		}
+	}
+	for k, v := range wc {
+		ss = append(ss, kv{k, v})
+	}
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value > ss[j].Value
+	})
+	for i := 0; i < count; i++ {
+		top[i] = ss[i].Key
+	}
+	return top
 }

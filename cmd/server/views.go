@@ -62,11 +62,9 @@ func handleCachedResponse(cr *CachedResponse, w http.ResponseWriter, r *http.Req
 // the handler receiving http request
 func wikiHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL.Path[6:]
-	fmt.Println(url)
 	// lookup in the cache for a cached response
 	if cr, iscached := cacheLookup(url); iscached {
 		handleCachedResponse(cr, w, r)
-
 		return
 	} else {
 		d, err := index.Document(url)
@@ -91,7 +89,6 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 				redirect = string(v.Value())
 			}
 		}
-
 		if entryType == fmt.Sprintf("%d", zim.RedirectEntry) && redirect != "" {
 			cache.Add(url, CachedResponse{
 				ResponseType: RedirectResponse,
@@ -126,7 +123,6 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 			handleCachedResponse(cr, w, r)
 		}
 	}
-
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +159,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	sr, err := index.Search(search)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
-
 		return
 	}
 	if sr.Total > 0 {
@@ -204,7 +199,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := templates.ExecuteTemplate(w, "searchResult.html", d); err != nil {
 		http.Error(w, err.Error(), 500)
-
 		return
 	}
 }
@@ -224,7 +218,8 @@ func browseHandler(w http.ResponseWriter, r *http.Request) {
 
 	sr, err := index.Search(search)
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, err.Error(), 500)
+		return
 	}
 	for _, v := range sr.Hits {
 		a := &ArticleIndex{}
@@ -260,7 +255,6 @@ func browseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := templates.ExecuteTemplate(w, "index.html", d); err != nil {
 		http.Error(w, err.Error(), 500)
-
 		return
 	}
 }
