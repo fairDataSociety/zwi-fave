@@ -23,7 +23,7 @@ jobs:
           go-version: ${{ matrix.go }}
       - name: Install deps
         if: matrix.os == 'ubuntu-latest'
-        run: apt-get install git liblzma-dev mercurial build-essential
+        run: sudo apt-get install git liblzma-dev mercurial build-essential
       - name: Install go deps
         run: ls && go mod tidy
       - name: Build
