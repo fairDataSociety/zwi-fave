@@ -12,10 +12,10 @@ import (
 
 	zim "github.com/akhenakh/gozim"
 	"github.com/blevesearch/bleve"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
 	"github.com/jdkato/prose/v2"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/onepeerlabs/w3kipedia/pkg/bee"
 	"github.com/sirupsen/logrus"
 )
 
@@ -65,7 +65,6 @@ func main() {
 	logger := logging.New(os.Stdout, logrus.ErrorLevel)
 	b := bee.NewBeeClient(
 		*beeHost,
-		"",
 		*batch,
 		logger,
 	)

@@ -2,14 +2,12 @@ module github.com/onepeerlabs/w3kipedia
 
 go 1.17
 
-replace github.com/fairdatasociety/fairOS-dfs => ../../fairDataSociety/fairOS-dfs
-
 require (
 	github.com/akhenakh/gozim v0.0.0-20211220135114-45d8f5cbe57c
 	github.com/blevesearch/bleve v1.0.14
 	github.com/ethersphere/bee v0.5.0
 	github.com/ethersphere/bmt v0.1.4
-	github.com/fairdatasociety/fairOS-dfs v0.0.0-00010101000000-000000000000
+	github.com/fairdatasociety/fairOS-dfs v0.7.3-0.20220315075233-f6082b721373
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jdkato/prose/v2 v2.0.0
 	github.com/microcosm-cc/bluemonday v1.0.1

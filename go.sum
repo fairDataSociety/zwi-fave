@@ -219,6 +219,8 @@ github.com/ethersphere/sw3-bindings/v2 v2.1.0/go.mod h1:ozMVBZZlAirS/FcUpFwzV60v
 github.com/facebookgo/ensure v0.0.0-20200202191622-63f1cf65ac4c/go.mod h1:Yg+htXGokKKdzcwhuNDwVvN+uBxDGXJ7G/VN1d8fa64=
 github.com/facebookgo/stack v0.0.0-20160209184415-751773369052/go.mod h1:UbMTZqLaRiH3MsBH8va0n7s1pQYcu3uTb8G4tygF4Zg=
 github.com/facebookgo/subset v0.0.0-20200203212716-c811ad88dec4/go.mod h1:5tD+neXqOorC30/tWg0LCSkrqj/AR6gu8yY8/fpw1q0=
+github.com/fairdatasociety/fairOS-dfs v0.7.3-0.20220315075233-f6082b721373 h1:J9naRQJl1NJ4wWcJ42LZ4i41rJCfKqjxWv1ihPw0hhs=
+github.com/fairdatasociety/fairOS-dfs v0.7.3-0.20220315075233-f6082b721373/go.mod h1:lSBMThtWYdC8W6MRTRD+z3W+AD3WwNz/WQoJSokZuu0=
 github.com/fairdatasociety/fairOS-dfs-utils v0.0.0-20220208153721-e0f8b5b25222/go.mod h1:mkAewI0dejwQxIOIS4sD+R/J/fvGXTckXXIRkvYHo3c=
 github.com/fatih/color v1.3.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=

@@ -14,9 +14,9 @@ import (
 	"strconv"
 
 	"github.com/blevesearch/bleve"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/onepeerlabs/w3kipedia/pkg/bee"
 	"github.com/sirupsen/logrus"
 )
 
@@ -74,7 +74,6 @@ func main() {
 	logger := logging.New(os.Stdout, logrus.ErrorLevel)
 	B = bee.NewBeeClient(
 		*beeHost,
-		"",
 		"",
 		logger,
 	)
