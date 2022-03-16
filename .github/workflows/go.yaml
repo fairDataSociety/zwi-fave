@@ -1,0 +1,30 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        go: [1.15]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Install deps
+        if: matrix.os != 'ubuntu-latest'
+        run: apt-get install git liblzma-dev mercurial build-essential
+      - name: Install go deps
+        run: go mod tidy
+      - name: Build
+        run: cd cmd/indexer && go build -ldflags "-s -w"
