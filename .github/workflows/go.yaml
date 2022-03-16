@@ -25,6 +25,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get install git liblzma-dev mercurial build-essential
       - name: Install go deps
-        run: ls && go mod tidy
+        run: ls
       - name: Build
         run: cd cmd/indexer && go build -ldflags "-s -w"
