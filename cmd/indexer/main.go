@@ -159,7 +159,7 @@ func main() {
 		}
 		address, err := b.UploadBlob(data, true, true)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("Failed to upload %s : %s", a.FullURL(), err.Error()))
+			fmt.Printf("Failed to upload %s : %s\n", a.FullURL(), err.Error())
 			return
 		}
 		fmt.Println(a.FullURL(), hex.EncodeToString(address), len(data))
@@ -184,7 +184,7 @@ func main() {
 	}
 	indexMetaAddress, err := b.UploadBlob(indexMeta, true, true)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Failed to upload index meta : %s", err.Error()))
+		fmt.Printf("Failed to upload index meta : %s\n", err.Error())
 		return
 	}
 	fmt.Println("index meta hash : ", hex.EncodeToString(indexMetaAddress))
@@ -195,7 +195,7 @@ func main() {
 	}
 	indexStoreAddress, err := b.UploadBlob(indexStore, true, true)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Failed to upload index store : %s", err.Error()))
+		fmt.Printf("Failed to upload index store : %s\n", err.Error())
 		return
 	}
 	fmt.Println("index store hash :", hex.EncodeToString(indexStoreAddress))

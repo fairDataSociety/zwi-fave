@@ -7,19 +7,8 @@ import (
 	"net/http"
 	"strconv"
 
-	zim "github.com/akhenakh/gozim"
 	"github.com/blevesearch/bleve"
 )
-
-type article struct {
-	Title     string
-	Namespace string
-	Content   string
-	FullURL   string
-	MimeType  string
-	EntryType int
-	Address   []byte
-}
 
 type ArticleIndex struct {
 	Title    string
@@ -29,16 +18,15 @@ type ArticleIndex struct {
 }
 
 const (
-	ArticlesPerPage = 16
+	ArticlesPerPage        = 16
+	RedirectEntry   uint16 = 0xffff
 )
 
 func cacheLookup(url string) (*CachedResponse, bool) {
 	if v, ok := cache.Get(url); ok {
 		c := v.(CachedResponse)
-
 		return &c, ok
 	}
-
 	return nil, false
 }
 
@@ -55,7 +43,10 @@ func handleCachedResponse(cr *CachedResponse, w http.ResponseWriter, r *http.Req
 		w.Header().Set("Content-Type", cr.MimeType)
 		// 15 days
 		w.Header().Set("Cache-control", "public, max-age=1350000")
-		w.Write(cr.Data)
+		_, err := w.Write(cr.Data)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -89,7 +80,7 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 				redirect = string(v.Value())
 			}
 		}
-		if entryType == fmt.Sprintf("%d", zim.RedirectEntry) && redirect != "" {
+		if entryType == fmt.Sprintf("%d", RedirectEntry) && redirect != "" {
 			cache.Add(url, CachedResponse{
 				ResponseType: RedirectResponse,
 				Data:         []byte(redirect),
@@ -257,8 +248,4 @@ func browseHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-}
-
-func robotHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "User-agent: *\nDisallow: /\n")
 }

@@ -63,7 +63,6 @@ func main() {
 
 	flag.Parse()
 
-	// Do we have an index ?
 	if indexPath == nil || *indexPath == "" {
 		log.Fatal("index not found")
 	}
@@ -90,7 +89,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		// downloadMeta
+		// downloadIndex
 		metaHex, err := hex.DecodeString(metaRef)
 		if err != nil {
 			log.Fatal(err)
@@ -165,7 +164,6 @@ func main() {
 		listenPath = ":" + strconv.Itoa(*port)
 	}
 
-	// Opening large indexes could takes minutes on raspberry
 	log.Println("Listening on", listenPath)
 
 	err = http.ListenAndServe(listenPath, nil)
