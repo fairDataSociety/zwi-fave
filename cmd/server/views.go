@@ -94,7 +94,7 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 		} else {
-			data, _, err := B.DownloadBlob(ref)
+			data, _, err := b.DownloadBlob(ref)
 			if err != nil {
 				cache.Add(url, CachedResponse{ResponseType: NoResponse})
 				return

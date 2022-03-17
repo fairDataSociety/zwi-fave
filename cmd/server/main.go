@@ -14,7 +14,9 @@ import (
 	"strconv"
 
 	"github.com/blevesearch/bleve"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee/mock"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
@@ -41,10 +43,12 @@ type CachedResponse struct {
 var (
 	port       = flag.Int("port", -1, "port to listen to, read HOST env if not specified, default to 8080 otherwise")
 	indexPath  = flag.String("index", "", "path for the index file")
-	beeHost    = flag.String("bee", "", "Bee API endpoint")
-	beeIsProxy = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
+	beeHost    = flag.String("bee", "", "bee API endpoint")
+	beeIsProxy = flag.Bool("proxy", false, "if Bee endpoint is gateway proxy")
+	offline    = flag.Bool("offline", false, "run server offline for listing only")
+	help       = flag.Bool("help", false, "print help")
 
-	B *bee.BeeClient
+	b blockstore.Client
 	// Cache is filled with CachedResponse to avoid hitting the zim file for a zim URL
 	cache *lru.ARCCache
 	index bleve.Index
@@ -62,7 +66,10 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	flag.Parse()
-
+	if *help == true {
+		flag.Usage()
+		return
+	}
 	if indexPath == nil || *indexPath == "" {
 		log.Fatal("index not found")
 	}
@@ -70,14 +77,18 @@ func main() {
 	if beeHost == nil || *beeHost == "" {
 		log.Fatal("please input bee endpoint")
 	}
+	if *offline {
+		b = mock.NewMockBeeClient()
+	} else {
+		logger := logging.New(os.Stdout, logrus.ErrorLevel)
+		b = bee.NewBeeClient(
+			*beeHost,
+			"",
+			logger,
+		)
+	}
 
-	logger := logging.New(os.Stdout, logrus.ErrorLevel)
-	B = bee.NewBeeClient(
-		*beeHost,
-		"",
-		logger,
-	)
-	if !B.CheckConnection(*beeIsProxy) {
+	if !b.CheckConnection(*beeIsProxy) {
 		log.Fatal("connection unavailable")
 	}
 	// open the db
@@ -93,7 +104,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		metaData, _, err := B.DownloadBlob(metaHex)
+		metaData, _, err := b.DownloadBlob(metaHex)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -111,7 +122,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		storeData, _, err := B.DownloadBlob(storeHex)
+		storeData, _, err := b.DownloadBlob(storeHex)
 		if err != nil {
 			log.Fatal(err)
 		}

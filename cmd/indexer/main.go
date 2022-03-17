@@ -12,7 +12,9 @@ import (
 
 	zim "github.com/akhenakh/gozim"
 	"github.com/blevesearch/bleve"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee"
+	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee/mock"
 	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
 	"github.com/jdkato/prose/v2"
 	"github.com/microcosm-cc/bluemonday"
@@ -37,15 +39,22 @@ type kv struct {
 
 var (
 	indexPath    = flag.String("index", "", "path for the index file")
-	beeHost      = flag.String("bee", "", "Bee API endpoint")
-	beeIsProxy   = flag.Bool("proxy", false, "If Bee endpoint is gateway proxy")
-	batch        = flag.String("batch", "", "Bee Postage Stamp ID")
+	beeHost      = flag.String("bee", "", "bee API endpoint")
+	beeIsProxy   = flag.Bool("proxy", false, "if Bee endpoint is gateway proxy")
+	batch        = flag.String("batch", "", "bee Postage Stamp ID")
 	zimPath      = flag.String("zim", "", "zim file location")
-	indexContent = flag.Bool("content", false, "should index content tags or not (indexing process will be faster if false)")
+	indexContent = flag.Bool("content", false, "whether to generate tags  from content for indexing (indexing process will be faster if false)")
+	offline      = flag.Bool("offline", false, "run server offline for listing only")
+	help         = flag.Bool("help", false, "print help")
 )
 
 func main() {
 	flag.Parse()
+	if *help == true {
+		flag.Usage()
+		return
+	}
+
 	if indexPath == nil || *indexPath == "" {
 		log.Fatal("index not found")
 	}
@@ -61,13 +70,17 @@ func main() {
 	if zimPath == nil || *zimPath == "" {
 		log.Fatal("please input zim location")
 	}
-
-	logger := logging.New(os.Stdout, logrus.ErrorLevel)
-	b := bee.NewBeeClient(
-		*beeHost,
-		*batch,
-		logger,
-	)
+	var b blockstore.Client
+	if *offline {
+		b = mock.NewMockBeeClient()
+	} else {
+		logger := logging.New(os.Stdout, logrus.ErrorLevel)
+		b = bee.NewBeeClient(
+			*beeHost,
+			*batch,
+			logger,
+		)
+	}
 	if !b.CheckConnection(*beeIsProxy) {
 		log.Fatal("connection unavailable")
 	}
