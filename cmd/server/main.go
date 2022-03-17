@@ -66,7 +66,7 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	flag.Parse()
-	if help != nil && *help == true {
+	if *help {
 		flag.Usage()
 		return
 	}
