@@ -50,7 +50,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if *help == true {
+	if help != nil && *help == true {
 		flag.Usage()
 		return
 	}
