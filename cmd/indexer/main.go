@@ -234,7 +234,11 @@ func mostWords(input []prose.Token, count int) (top []string) {
 	sort.Slice(ss, func(i, j int) bool {
 		return ss[i].Value > ss[j].Value
 	})
-	for i := 0; i < count; i++ {
+	limit := count
+	if len(ss) < count {
+		limit = len(ss)
+	}
+	for i := 0; i < limit; i++ {
 		top[i] = ss[i].Key
 	}
 	return top
