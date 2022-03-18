@@ -1,6 +1,8 @@
 ## w3kipedia
 
-w3kipedia has two components 
+w3kipedia is a try to participate for the [WAM](https://www.wearemillions.online/) hackathon for a better wikipedia on swarm.
+
+It has two components
 
 #### Indexer: 
 
@@ -92,5 +94,22 @@ This will start a local http-serve which will serve wikipedia content on port `:
 The content will be served from swarm.
 
 ** If index is not present at the given location, server will download the index of top 100 english articles from swarm and serve.
+
+#### How Indexer works:
+
+Indexer uses bleve and boltdb to create index. It is using Article title, url and an array of tags to index each article. 
+It also uploads the content of each item in the zim into swarm and saves it in the local index file along with the indexes.
+As bleve uses a key-value store, indexer uses relative urls of all the items as key.
+
+- How does it generate tags?
+
+It gets all the words from html content then creates a list of proper nouns, and their occurrences in the article. Takes top 10 words from that list
+
+#### How Server works:
+
+Server lists all the items in the server with "text/html" mimetype. 
+
+For showing the content it checks "GET" request on "/wiki/XXXX". it reads the "XXXX" relative url, then finds the entry for that item in the key-value store,
+reads the swarm hash, downloads the content and sends it back as response.
 
 this project [uses code](https://github.com/akhenakh/gozim/blob) that is [MIT licensed](https://github.com/akhenakh/gozim/blob/master/LICENSE)

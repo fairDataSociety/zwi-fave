@@ -38,14 +38,15 @@ type kv struct {
 }
 
 var (
-	indexPath    = flag.String("index", "", "path for the index file")
-	beeHost      = flag.String("bee", "", "bee API endpoint")
-	beeIsProxy   = flag.Bool("proxy", false, "if Bee endpoint is gateway proxy")
-	batch        = flag.String("batch", "", "bee Postage Stamp ID")
-	zimPath      = flag.String("zim", "", "zim file location")
-	indexContent = flag.Bool("content", false, "whether to generate tags  from content for indexing (indexing process will be faster if false)")
-	offline      = flag.Bool("offline", false, "run server offline for listing only")
-	help         = flag.Bool("help", false, "print help")
+	indexPath     = flag.String("index", "", "path for the index file")
+	beeHost       = flag.String("bee", "", "bee API endpoint")
+	beeIsProxy    = flag.Bool("proxy", false, "if Bee endpoint is gateway proxy")
+	batch         = flag.String("batch", "", "bee Postage Stamp ID")
+	zimPath       = flag.String("zim", "", "zim file location")
+	indexContent  = flag.Bool("content", false, "whether to generate tags  from content for indexing (indexing process will be faster if false)")
+	offline       = flag.Bool("offline", false, "run server offline for listing only")
+	shouldEncrypt = flag.Bool("encrypt", false, "encrypt content while uploading into swarm")
+	help          = flag.Bool("help", false, "print help")
 )
 
 func main() {
@@ -169,7 +170,7 @@ func main() {
 		if title == "" {
 			title = filepath.Base(a.FullURL())
 		}
-		address, err := b.UploadBlob(data, true, true)
+		address, err := b.UploadBlob(data, true, *shouldEncrypt)
 		if err != nil {
 			fmt.Printf("Failed to upload %s : %s\n", a.FullURL(), err.Error())
 			return
@@ -194,7 +195,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	indexMetaAddress, err := b.UploadBlob(indexMeta, true, true)
+	indexMetaAddress, err := b.UploadBlob(indexMeta, true, *shouldEncrypt)
 	if err != nil {
 		fmt.Printf("Failed to upload index meta : %s\n", err.Error())
 		return
@@ -205,7 +206,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	indexStoreAddress, err := b.UploadBlob(indexStore, true, true)
+	indexStoreAddress, err := b.UploadBlob(indexStore, true, *shouldEncrypt)
 	if err != nil {
 		fmt.Printf("Failed to upload index store : %s\n", err.Error())
 		return
