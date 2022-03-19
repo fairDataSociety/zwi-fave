@@ -60,14 +60,6 @@ func main() {
 		log.Fatal("index not found")
 	}
 
-	if beeHost == nil || *beeHost == "" {
-		log.Fatal("please input bee endpoint")
-	}
-
-	if batch == nil || *batch == "" {
-		log.Fatal("please input batch-id")
-	}
-
 	if zimPath == nil || *zimPath == "" {
 		log.Fatal("please input zim location")
 	}
@@ -75,6 +67,13 @@ func main() {
 	if *offline {
 		b = mock.NewMockBeeClient()
 	} else {
+		if beeHost == nil || *beeHost == "" {
+			log.Fatal("please input bee endpoint")
+		}
+
+		if batch == nil || *batch == "" {
+			log.Fatal("please input batch-id")
+		}
 		logger := logging.New(os.Stdout, logrus.ErrorLevel)
 		b = bee.NewBeeClient(
 			*beeHost,
@@ -110,7 +109,7 @@ func main() {
 	articleMapping.AddFieldMappingsAt("RedirectURL", nonIndexMapping)
 
 	var index bleve.Index
-	_, err := os.Lstat(*indexPath)
+	_, err := os.Lstat(*indexPath + "/index_meta.json")
 	if os.IsNotExist(err) {
 		index, err = bleve.New(*indexPath, mapping)
 		if err != nil {
@@ -175,7 +174,12 @@ func main() {
 			fmt.Printf("Failed to upload %s : %s\n", a.FullURL(), err.Error())
 			return
 		}
-		fmt.Println(a.FullURL(), hex.EncodeToString(address), len(data))
+		if *offline {
+			fmt.Println(a.FullURL(), "indexed")
+		} else {
+			fmt.Println(a.FullURL(), hex.EncodeToString(address))
+		}
+
 		idoc := article{
 			Title:       title,
 			Namespace:   string(a.Namespace),

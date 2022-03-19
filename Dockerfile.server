@@ -1,0 +1,14 @@
+FROM golang:1.17-alpine AS build
+RUN apk add build-base
+RUN apk add xz-dev
+RUN apk add linux-headers
+
+WORKDIR /go/src/github.com/onepeerlabs/w3kipedia
+
+COPY go.mod go.sum /go/src/github.com/onepeerlabs/w3kipedia
+RUN go mod download
+
+COPY . /go/src/github.com/onepeerlabs/w3kipedia
+
+RUN cd cmd/server && go build -o w3kipedia && mv w3kipedia ../../w3kipedia
+ENTRYPOINT ["./w3kipedia"]

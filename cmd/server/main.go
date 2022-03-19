@@ -74,12 +74,12 @@ func main() {
 		log.Fatal("index not found")
 	}
 
-	if beeHost == nil || *beeHost == "" {
-		log.Fatal("please input bee endpoint")
-	}
 	if *offline {
 		b = mock.NewMockBeeClient()
 	} else {
+		if beeHost == nil || *beeHost == "" {
+			log.Fatal("please input bee endpoint")
+		}
 		logger := logging.New(os.Stdout, logrus.ErrorLevel)
 		b = bee.NewBeeClient(
 			*beeHost,

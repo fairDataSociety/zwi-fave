@@ -31,6 +31,11 @@ On OSX:
 cd cmd/indexer
 CGO_CFLAGS=`pkg-config --cflags liblzma` go build 
 ```
+
+Docker:
+```
+docker build -f Dockerfile.indexer --tag w3ki-indexer .
+```
 #### Help :
 
 ```
@@ -54,9 +59,25 @@ Usage of ./indexer:
         zim file location
 ```
 
+Docker: 
+```
+docker run w3ki-indexer -h
+```
+
+
 #### Running :
+
+Binary: 
 ```
 ./indexer -index=indexLocation -bee=beeEndpoint -batch=batchID -zim=zimLocation -content=true
+```
+
+Docker:
+```
+docker run 
+    -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index \
+    -v <PATH_TO_ZIM>:/go/src/github.com/onepeerlabs/w3kipedia/<ZIM_FILE_NAME> \
+    w3ki-indexer -zim=<ZIM_FILE_NAME> -content=true -index=index -bee=beeEndpoint -batch=batchID
 ```
 
 ### How to serve?
@@ -64,6 +85,11 @@ Usage of ./indexer:
 ```
 cd cmd/server
 go build
+```
+
+Docker:
+```
+docker build -f  Dockerfile.server --tag w3ki-server .
 ```
 
 #### Help :
@@ -85,9 +111,25 @@ Usage of ./server:
         if Bee endpoint is gateway proxy
 ```
 
+Docker:
+```
+docker run w3ki-server -h
+```
+
+
 #### Running :
+
+Binary: 
 ```
 ./server -index=indexLocation -bee=beeEndpoint
+```
+
+Docker:
+```
+docker run 
+    -p 8080:8080 \
+    -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index  
+    w3ki-server -index=index -bee=beeEndpoint -batch=batchID
 ```
 
 This will start a local http-serve which will serve wikipedia content on port `:8080`. The index needs to be present locally. 
