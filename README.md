@@ -74,7 +74,7 @@ Binary:
 
 Docker:
 ```
-docker run 
+docker run \
     -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index \
     -v <PATH_TO_ZIM>:/go/src/github.com/onepeerlabs/w3kipedia/<ZIM_FILE_NAME> \
     w3ki-indexer -zim=<ZIM_FILE_NAME> -content=true -index=index -bee=beeEndpoint -batch=batchID
@@ -126,7 +126,7 @@ Binary:
 
 Docker:
 ```
-docker run 
+docker run \
     -p 8080:8080 \
     -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index  
     w3ki-server -index=index -bee=beeEndpoint -batch=batchID
