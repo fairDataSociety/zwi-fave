@@ -32,8 +32,6 @@
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
             <li class="active"><a href="/">Browse</a></li>
-            <li><a href="/search/">Search</a></li>
-
           </ul>
           <form class="navbar-form navbar-right" role="form" action="/search/">
             <input type="text" class="form-control" name="search_data" id="search_data" placeholder="Search...">
@@ -44,47 +42,11 @@
 
 
     <div class="container">
-
-      
-      <table class="table table-striped">
-        <thead>
-        <tr>
-          <th>Title</th>
-        </tr>
-
-        <tbody>
-
-        {{with .Articles}}
-          {{range .}}
-          <tr>
-            <td><a href="/wiki/{{ .FullURL }}">{{ .Title }}</a></td>
-          </tr>
-          {{end}}
-        {{end}}
-
-        </tbody>
-      </thead>
-      </table>
-     
-    </div> <!-- /container -->
-
-    <div id="footer">
-      <div class="container">
-          
-        <ul class="pager">
-            <li class="previous">
-                <a href="/?page={{ .PreviousPage }}">← Previous</a>
-            </li>
-            <li class="next">
-                <a href="/?page={{ .NextPage  }}">Next →</a>
-            </li>
-        </ul>
-      </div>
+      <iframe src="http://localhost:8526/wiki/A/index" title="Main Page" id="main" height="800" width="100%"></iframe>
     </div>
 
     <script src="/static/js/jquery.min.js"></script>
     <script src="/static/js/bootstrap.min.js"></script>
-
   </body>
 </html>
 
