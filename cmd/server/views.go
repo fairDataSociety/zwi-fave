@@ -1,19 +1,29 @@
 package main
 
 import (
-	"encoding/hex"
+	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/blevesearch/bleve"
+	swagger "github.com/onepeerlabs/w3kipedia/pkg/go-client"
 )
+
+var (
+	client *swagger.APIClient
+)
+
+func init() {
+	cfg := swagger.NewConfiguration()
+	cfg.BasePath = *fave
+	client = swagger.NewAPIClient(cfg)
+}
 
 type ArticleIndex struct {
 	Title    string
 	FullURL  string
-	Address  string
 	MimeType string
 }
 
@@ -58,28 +68,21 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		handleCachedResponse(cr, w, r)
 		return
 	} else {
-		d, err := index.Document(url)
+		d, resp, err := client.DefaultApi.DocumentsGet(context.Background(), "fullURL", url, *collection)
 		if err != nil {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			return
 		}
-		if d == nil {
+
+		if resp.StatusCode != 200 {
+			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			return
 		}
-		mime := ""
-		entryType := ""
-		redirect := ""
-		for _, v := range d.Fields {
-			if v.Name() == "Address" {
-				url = string(v.Value())
-			} else if v.Name() == "MimeType" {
-				mime = string(v.Value())
-			} else if v.Name() == "EntryType" {
-				entryType = string(v.Value())
-			} else if v.Name() == "RedirectURL" {
-				redirect = string(v.Value())
-			}
-		}
+		d.Properties["fullURL"] = url
+		mime := fmt.Sprintf("%v", d.Properties["mimeType"])
+		entryType := d.Properties["entryType"]
+		redirect := fmt.Sprintf("%v", d.Properties["redirect"])
+
 		if entryType == fmt.Sprintf("%d", RedirectEntry) && redirect != "" {
 			cache.Add(url, CachedResponse{
 				ResponseType: RedirectResponse,
@@ -90,15 +93,16 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-		ref, err := hex.DecodeString(url)
+
 		if err != nil {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 		} else {
-			data, _, err := b.DownloadBlob(ref)
+			data, err := base64.StdEncoding.DecodeString(d.Properties["content"].(string))
 			if err != nil {
 				cache.Add(url, CachedResponse{ResponseType: NoResponse})
 				return
 			}
+
 			if err != nil {
 				cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			} else {
@@ -117,74 +121,36 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-	pageString := r.FormValue("page")
-	pageNumber, _ := strconv.Atoi(pageString)
-	previousPage := pageNumber - 1
-	if pageNumber == 0 {
-		previousPage = 0
-	}
-	nextPage := pageNumber + 1
 	q := r.FormValue("search_data")
-	d := map[string]interface{}{
-		"Query":        q,
-		"Path":         "",
-		"Page":         pageNumber,
-		"PreviousPage": previousPage,
-		"NextPage":     nextPage,
+	nr := swagger.NearestDocumentsRequest{
+		Text:     q,
+		Name:     *collection,
+		Distance: 1,
 	}
-
-	if q == "" {
-		if err := templates.ExecuteTemplate(w, "search.html", d); err != nil {
-			http.Error(w, err.Error(), 500)
-		}
-
-		return
-	}
-
-	itemCount := 20
-	from := itemCount * pageNumber
-	query := bleve.NewQueryStringQuery(q)
-	search := bleve.NewSearchRequestOptions(query, itemCount, from, false)
-	search.Fields = []string{"Title", "FullURL"}
-
-	sr, err := index.Search(search)
+	nResp, _, err := client.DefaultApi.FaveGetNearestDocuments(context.Background(), nr)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	if sr.Total > 0 {
-		d["Info"] = fmt.Sprintf("%d matches for query [%s], took %s", sr.Total, q, sr.Took)
+	d := map[string]interface{}{}
+	if len(nResp.Documents) > 0 {
 
 		// Constructs a list of Hits
 		var l []map[string]string
 
-		for _, h := range sr.Hits {
+		for _, h := range nResp.Documents {
 			a := &ArticleIndex{}
-			for otherFieldName, otherFieldValue := range h.Fields {
-				if otherFieldName == "Title" {
-					a.Title = fmt.Sprintf("%v", otherFieldValue)
-				} else if otherFieldName == "FullURL" {
-					if a.Title == "" {
-						a.Title = fmt.Sprintf("%v", otherFieldValue)
-					}
-					a.FullURL = fmt.Sprintf("%v", otherFieldValue)
-				} else if otherFieldName == "Address" {
-					a.Address = fmt.Sprintf("%v", otherFieldValue)
-				} else if otherFieldName == "MimeType" {
-					a.MimeType = fmt.Sprintf("%v", otherFieldValue)
-				}
-			}
+			a.Title = h.Properties["title"].(string)
+
 			l = append(l, map[string]string{
-				"Score": strconv.FormatFloat(h.Score, 'f', 1, 64),
+				"Score": strconv.FormatFloat(h.Properties["distance"].(float64), 'f', 1, 64),
 				"Title": a.Title,
-				"URL":   "/wiki/" + a.FullURL,
+				"URL":   "/wiki/" + h.Properties["fullURL"].(string),
 			})
 
 		}
 		d["Hits"] = l
 
 	} else {
-		d["Info"] = fmt.Sprintf("No match for [%s], took %s", q, sr.Took)
 		d["Hits"] = 0
 	}
 
@@ -203,33 +169,7 @@ func browseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	Articles := []*ArticleIndex{}
-	query := bleve.NewPhraseQuery([]string{"html"}, "MimeType")
-	search := bleve.NewSearchRequestOptions(query, ArticlesPerPage, page*ArticlesPerPage, false)
-	search.Fields = []string{"Title", "FullURL", "MimeType"}
 
-	sr, err := index.Search(search)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	for _, v := range sr.Hits {
-		a := &ArticleIndex{}
-		for otherFieldName, otherFieldValue := range v.Fields {
-			if otherFieldName == "Title" {
-				a.Title = fmt.Sprintf("%v", otherFieldValue)
-			} else if otherFieldName == "FullURL" {
-				a.FullURL = fmt.Sprintf("%v", otherFieldValue)
-			} else if otherFieldName == "Address" {
-				a.Address = fmt.Sprintf("%v", otherFieldValue)
-			} else if otherFieldName == "MimeType" {
-				a.MimeType = fmt.Sprintf("%v", otherFieldValue)
-			}
-		}
-		if a.Title == "" {
-			a.Title = a.FullURL
-		}
-		Articles = append(Articles, a)
-	}
 	if page == 0 {
 		previousPage = 0
 	} else {

@@ -32,8 +32,6 @@
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
             <li><a href="/">Browse</a></li>
-            <li class="active"><a href="/search/">Search</a></li>
-
           </ul>
           <form class="navbar-form navbar-right" role="form" action="/search/">
               <input type="text" class="form-control" name="search_data" id="search_data" placeholder="Search..." value="{{ .Query }}">
@@ -52,7 +50,7 @@
         <thead>
         <tr>
           <th>Title</th>
-          <th>Score</th>
+          <th>Distance</th>
         </tr>
 
         <tbody>
