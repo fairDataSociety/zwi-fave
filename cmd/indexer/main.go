@@ -1,36 +1,18 @@
 package main
 
 import (
-	"encoding/hex"
+	"context"
 	"flag"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
 	zim "github.com/akhenakh/gozim"
-	"github.com/blevesearch/bleve"
-	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore"
-	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee"
-	"github.com/fairdatasociety/fairOS-dfs/pkg/blockstore/bee/mock"
-	"github.com/fairdatasociety/fairOS-dfs/pkg/logging"
-	"github.com/jdkato/prose/v2"
+	"github.com/google/uuid"
+	"github.com/jaytaylor/html2text"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/sirupsen/logrus"
+	swagger "github.com/onepeerlabs/w3kipedia/pkg/go-client"
 )
-
-type article struct {
-	Title       string
-	Namespace   string
-	Content     string
-	FullURL     string
-	MimeType    string
-	EntryType   string
-	Address     string
-	RedirectURL string
-}
 
 type kv struct {
 	Key   string
@@ -38,90 +20,53 @@ type kv struct {
 }
 
 var (
-	indexPath     = flag.String("index", "", "path for the index file")
-	beeHost       = flag.String("bee", "", "bee API endpoint")
-	beeIsProxy    = flag.Bool("proxy", false, "if Bee endpoint is gateway proxy")
-	batch         = flag.String("batch", "", "bee Postage Stamp ID")
-	zimPath       = flag.String("zim", "", "zim file location")
-	indexContent  = flag.Bool("content", false, "whether to generate tags  from content for indexing (indexing process will be faster if false)")
-	offline       = flag.Bool("offline", false, "run server offline for listing only")
-	shouldEncrypt = flag.Bool("encrypt", false, "encrypt content while uploading into swarm")
-	help          = flag.Bool("help", false, "print help")
+	zimPath    = flag.String("zim", "", "zim file location")
+	fave       = flag.String("fave", "http://localhost:1234/v1", "FaVe API endpoint")
+	collection = flag.String("collection", "", "Collection name to store content in FaVe")
+	help       = flag.Bool("help", false, "print help")
 )
 
 func main() {
+
 	flag.Parse()
 	if *help {
 		flag.Usage()
 		return
 	}
 
-	if indexPath == nil || *indexPath == "" {
-		log.Fatal("index not found")
-	}
-
 	if zimPath == nil || *zimPath == "" {
 		log.Fatal("please input zim location")
 	}
-	var b blockstore.Client
-	if *offline {
-		b = mock.NewMockBeeClient()
-	} else {
-		if beeHost == nil || *beeHost == "" {
-			log.Fatal("please input bee endpoint")
-		}
 
-		if batch == nil || *batch == "" {
-			log.Fatal("please input batch-id")
-		}
-		logger := logging.New(os.Stdout, logrus.ErrorLevel)
-		b = bee.NewBeeClient(
-			*beeHost,
-			*batch,
-			logger,
-		)
+	if fave == nil || *fave == "" {
+		log.Fatal("please input FaVe api endpoint")
 	}
-	if !b.CheckConnection(*beeIsProxy) {
-		log.Fatal("connection unavailable")
+
+	if collection == nil || *collection == "" {
+		log.Fatal("please input collection name")
 	}
-	bleve.Config.DefaultKVStore = "boltdb"
-	mapping := bleve.NewIndexMapping()
-	mapping.DefaultType = "Article"
 
-	articleMapping := bleve.NewDocumentMapping()
-	mapping.AddDocumentMapping("Article", articleMapping)
+	// create FaVe client
+	cfg := swagger.NewConfiguration()
+	cfg.BasePath = *fave
+	client := swagger.NewAPIClient(cfg)
+	fmt.Println("client created")
 
-	indexMapping := bleve.NewTextFieldMapping()
-	indexMapping.Store = true
-	indexMapping.Index = true
-	indexMapping.Analyzer = "standard"
+	// create collection
+	indexes := make(map[string]interface{})
+	indexes["title"] = "string"
+	indexes["fullURL"] = "string"
 
-	nonIndexMapping := bleve.NewTextFieldMapping()
-	nonIndexMapping.Store = true
-	nonIndexMapping.Index = false
-	nonIndexMapping.Analyzer = "standard"
-
-	articleMapping.AddFieldMappingsAt("Title", indexMapping)
-	articleMapping.AddFieldMappingsAt("FullURL", nonIndexMapping)
-	articleMapping.AddFieldMappingsAt("MimeType", indexMapping)
-	articleMapping.AddFieldMappingsAt("EntryType", nonIndexMapping)
-	articleMapping.AddFieldMappingsAt("Address", nonIndexMapping)
-	articleMapping.AddFieldMappingsAt("RedirectURL", nonIndexMapping)
-
-	var index bleve.Index
-	_, err := os.Lstat(*indexPath + "/index_meta.json")
-	if os.IsNotExist(err) {
-		index, err = bleve.New(*indexPath, mapping)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		index, err = bleve.Open(*indexPath)
-		if err != nil {
-			log.Fatal(err)
-		}
+	msg, resp, err := client.DefaultApi.FaveCreateCollection(context.Background(), swagger.Collection{Name: *collection, Indexes: indexes})
+	if err != nil {
+		log.Fatal(err, resp.StatusCode, msg)
 	}
-	defer index.Close()
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+		log.Fatal("failed to create collection")
+	}
+	fmt.Println(*collection, "collection created")
+	// process documents
+	var documents = make([]swagger.Document, 0)
 
 	// open zim
 	z, err := zim.NewReader(*zimPath, false)
@@ -134,26 +79,40 @@ func main() {
 		if err != nil || a.EntryType == zim.DeletedEntry {
 			return
 		}
+
 		redirectURL := ""
 		data, err := a.Data()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		tags := ""
-		if a.MimeType() == "text/html" && *indexContent {
-			p := bluemonday.StripTagsPolicy()
-			html := p.SanitizeBytes(data)
-			doc, err := prose.NewDocument(string(html))
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			// Iterate over the doc's tokens:
-			tags = strings.Join(mostWords(doc.Tokens(), 10), " ")
-		}
 		if len(data) == 0 {
 			return
 		}
+		title := a.Title
+		if title == "" {
+			title = filepath.Base(a.FullURL())
+		}
+		var props = make(swagger.PropertySchema, 0)
+		props["title"] = title
+		props["namespace"] = string(a.Namespace)
+		props["fullURL"] = a.FullURL()
+		props["mimeType"] = a.MimeType()
+		props["entryType"] = fmt.Sprintf("%d", a.EntryType)
+
+		if a.MimeType() == "text/html" {
+			p := bluemonday.StripTagsPolicy()
+			html := p.Sanitize(string(data))
+			props["content"] = data
+
+			text, err := html2text.FromString(html, html2text.Options{TextOnly: true})
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			props["rawText"] = text
+		} else {
+			props["content"] = data
+		}
+
 		if a.EntryType == zim.RedirectEntry {
 			ridx, err := a.RedirectIndex()
 			if err != nil {
@@ -165,85 +124,23 @@ func main() {
 			}
 			redirectURL = ra.FullURL()
 		}
-		title := a.Title
-		if title == "" {
-			title = filepath.Base(a.FullURL())
-		}
-		address, err := b.UploadBlob(data, true, *shouldEncrypt)
-		if err != nil {
-			fmt.Printf("Failed to upload %s : %s\n", a.FullURL(), err.Error())
-			return
-		}
-		if *offline {
-			fmt.Println(a.FullURL(), "indexed")
-		} else {
-			fmt.Println(a.FullURL(), hex.EncodeToString(address))
-		}
+		props["redirectURL"] = redirectURL
 
-		idoc := article{
-			Title:       title,
-			Namespace:   string(a.Namespace),
-			FullURL:     a.FullURL(),
-			MimeType:    a.MimeType(),
-			EntryType:   fmt.Sprintf("%d", a.EntryType),
-			Address:     hex.EncodeToString(address),
-			RedirectURL: redirectURL,
-			Content:     tags,
+		doc := swagger.Document{
+			Id:         uuid.New().String(),
+			Properties: props,
 		}
-		err = index.Index(a.FullURL(), idoc)
-		if err != nil {
-			log.Fatal(err.Error())
-		}
+		documents = append(documents, doc)
 	})
-	indexMeta, err := os.ReadFile(filepath.Join(*indexPath, "index_meta.json"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	indexMetaAddress, err := b.UploadBlob(indexMeta, true, *shouldEncrypt)
-	if err != nil {
-		fmt.Printf("Failed to upload index meta : %s\n", err.Error())
-		return
-	}
-	fmt.Println("index meta hash : ", hex.EncodeToString(indexMetaAddress))
 
-	indexStore, err := os.ReadFile(filepath.Join(*indexPath, "store"))
+	rqst := swagger.AddDocumentsRequest{
+		Documents:         documents,
+		Name:              *collection,
+		PropertiesToIndex: []string{"rawText"},
+	}
+	okResp, resp, err := client.DefaultApi.FaveAddDocuments(context.Background(), rqst)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
-	indexStoreAddress, err := b.UploadBlob(indexStore, true, *shouldEncrypt)
-	if err != nil {
-		fmt.Printf("Failed to upload index store : %s\n", err.Error())
-		return
-	}
-	fmt.Println("index store hash :", hex.EncodeToString(indexStoreAddress))
-}
-
-func mostWords(input []prose.Token, count int) (top []string) {
-	top = make([]string, count)
-	var ss []kv
-	wc := make(map[string]int)
-	for _, tok := range input {
-		if tok.Tag == "NNP" && len(tok.Text) > 2 {
-			_, matched := wc[tok.Text]
-			if matched {
-				wc[tok.Text] += 1
-			} else {
-				wc[tok.Text] = 1
-			}
-		}
-	}
-	for k, v := range wc {
-		ss = append(ss, kv{k, v})
-	}
-	sort.Slice(ss, func(i, j int) bool {
-		return ss[i].Value > ss[j].Value
-	})
-	limit := count
-	if len(ss) < count {
-		limit = len(ss)
-	}
-	for i := 0; i < limit; i++ {
-		top[i] = ss[i].Key
-	}
-	return top
+	fmt.Println(okResp, resp.StatusCode)
 }

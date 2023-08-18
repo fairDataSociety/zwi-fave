@@ -1,17 +1,18 @@
 ## w3kipedia
 
-w3kipedia is a try to participate for the [WAM](https://www.wearemillions.online/) hackathon for a better wikipedia on swarm.
+[w3kipedia](https://github.com/onepeerlabs/w3kipedia) was originally a try to participate for the [WAM](https://www.wearemillions.online/) hackathon for a better wikipedia on swarm.
+
+Now [w3kipedia-fave](https://github.com/onepeerlabs/w3kipedia-fave) is a modified version of w3kipedia that uses FaVe to store, index and search the content.
 
 It has two components
 
 #### Indexer: 
 
-Indexer can read Wikipedia OpenZip format [snapshots](https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/) create an offline index and
-upload content in [swarm](https://www.ethswarm.org/)
+Indexer can read Wikipedia OpenZip format [snapshots](https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/) and upload data to FaVe, ultimately storing content on [swarm](https://www.ethswarm.org/).
 
 #### Server:
 
-Server will start a http-server that can fetch content from swarm and display content in the web browser  
+Server will start a http-server that can fetch content from FaVe and display them in the web browser.  
 
 ### How to index?
 On Ubuntu/Debian :
@@ -41,20 +42,10 @@ docker build -f Dockerfile.indexer --tag w3ki-indexer .
 ```
 ./indexer --help
 Usage of ./indexer:
-  -batch string
-        bee Postage Stamp ID
-  -bee string
-        bee API endpoint
-  -content
-        whether to generate tags  from content for indexing (indexing process will be faster if false)
-  -help
-        print help
-  -index string
-        path for the index file
-  -offline
-        run server offline for listing only
-  -proxy
-        if Bee endpoint is gateway proxy
+  -fave string
+        FaVe API endpoint ("http://localhost:1234/v1")
+  -collection string
+        Collection name to store on FaVe
   -zim string
         zim file location
 ```
@@ -69,15 +60,14 @@ docker run w3ki-indexer -h
 
 Binary: 
 ```
-./indexer -index=indexLocation -bee=beeEndpoint -batch=batchID -zim=zimLocation -content=true
+./indexer -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME> -zim=zimLocation
 ```
 
 Docker:
 ```
 docker run \
-    -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index \
     -v <PATH_TO_ZIM>:/go/src/github.com/onepeerlabs/w3kipedia/<ZIM_FILE_NAME> \
-    w3ki-indexer -zim=<ZIM_FILE_NAME> -content=true -index=index -bee=beeEndpoint -batch=batchID
+    w3ki-indexer -zim=<ZIM_FILE_NAME> -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME>
 ```
 
 ### How to serve?
@@ -97,18 +87,12 @@ docker build -f  Dockerfile.server --tag w3ki-server .
 ```
 ./server -help                                                                                          
 Usage of ./server:
-  -bee string
-        bee API endpoint
-  -help
-        print help
-  -index string
-        path for the index file
-  -offline
-        run server offline for listing only
+  -fave string
+        FaVe API endpoint ("http://localhost:1234/v1")
+  -collection string
+        Collection name to store on FaVe
   -port int
         port to listen to, read HOST env if not specified, default to 8080 otherwise (default -1)
-  -proxy
-        if Bee endpoint is gateway proxy
 ```
 
 Docker:
@@ -121,37 +105,27 @@ docker run w3ki-server -h
 
 Binary: 
 ```
-./server -index=indexLocation -bee=beeEndpoint
+./server -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME>
 ```
 
 Docker:
 ```
 docker run \
     -p 8080:8080 \
-    -v <PATH_TO_INDEX>:/go/src/github.com/onepeerlabs/w3kipedia/index  
-    w3ki-server -index=index -bee=beeEndpoint -batch=batchID
+    w3ki-server -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME>
 ```
 
-This will start a local http-serve which will serve wikipedia content on port `:8080`. The index needs to be present locally. 
-The content will be served from swarm.
-
-** If index is not present at the given location, server will download the index of top 100 english articles from swarm and serve.
+This will start a local http-serve which will serve wikipedia content on port `:8080`. 
 
 #### How Indexer works:
 
-Indexer uses bleve and boltdb to create index. It is using Article title, url and an array of tags to index each article. 
-It also uploads the content of each item in the zim into swarm and saves it in the local index file along with the indexes.
-As bleve uses a key-value store, indexer uses relative urls of all the items as key.
-
-- How does it generate tags?
-
-It gets all the words from html content then creates a list of proper nouns, and their occurrences in the article. Takes top 10 words from that list
+Indexer uses [FaVe](https://github.com/fairDataSociety/FaVe) to store content and index them for doing semantic search. It is sanitizing the Article content and vectorizing it to do FaVe Nearest Neighbour Search. 
 
 #### How Server works:
 
 Server lists all the items in the server with "text/html" mimetype. 
 
-For showing the content it checks "GET" request on "/wiki/XXXX". it reads the "XXXX" relative url, then finds the entry for that item in the key-value store,
-reads the swarm hash, downloads the content and sends it back as response.
+For showing the content it checks "GET" request on "/wiki/XXXX". it reads the "XXXX" relative url, then finds the entry for that item in the FaVe/FairOS-dfs document store,
+downloads the content and sends it back as response.
 
 this project [uses code](https://github.com/akhenakh/gozim/blob) that is [MIT licensed](https://github.com/akhenakh/gozim/blob/master/LICENSE)
