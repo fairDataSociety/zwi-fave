@@ -6,69 +6,15 @@ Now [w3kipedia-fave](https://github.com/onepeerlabs/w3kipedia-fave) is a modifie
 
 It has two components
 
-#### Indexer: 
+#### Uploader: 
 
-Indexer can read Wikipedia OpenZip format [snapshots](https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/) and upload data to FaVe, ultimately storing content on [swarm](https://www.ethswarm.org/).
+[Uploader](./cmd/uploader/README.md) can read Wikipedia OpenZip format [snapshots](https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/) and upload data to FaVe, ultimately storing content on [swarm](https://www.ethswarm.org/).
 
 #### Server:
 
 Server will start a http-server that can fetch content from FaVe and display them in the web browser.  
 
-### How to index?
-On Ubuntu/Debian :
 
-you need these packages to compile gozim
-```
-apt-get install git liblzma-dev mercurial build-essential
-```
-
-```
-cd cmd/indexer
-go build
-```
-
-On OSX:
-```
-cd cmd/indexer
-CGO_CFLAGS=`pkg-config --cflags liblzma` go build 
-```
-
-Docker:
-```
-docker build -f Dockerfile.indexer --tag w3ki-indexer .
-```
-#### Help :
-
-```
-./indexer --help
-Usage of ./indexer:
-  -fave string
-        FaVe API endpoint ("http://localhost:1234/v1")
-  -collection string
-        Collection name to store on FaVe
-  -zim string
-        zim file location
-```
-
-Docker: 
-```
-docker run w3ki-indexer -h
-```
-
-
-#### Running :
-
-Binary: 
-```
-./indexer -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME> -zim=zimLocation
-```
-
-Docker:
-```
-docker run \
-    -v <PATH_TO_ZIM>:/go/src/github.com/onepeerlabs/w3kipedia/<ZIM_FILE_NAME> \
-    w3ki-indexer -zim=<ZIM_FILE_NAME> -fave=<FAVE_API_ENDPOINT> -collection=<COLLECTION_NAME>
-```
 
 ### How to serve?
 

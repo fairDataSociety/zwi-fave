@@ -33,4 +33,4 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: make lint
       - name: Build
-        run: cd cmd/indexer && go build -ldflags "-s -w"
+        run: cd cmd/uploader && go build -ldflags "-s -w"

@@ -10,5 +10,5 @@ RUN go mod download
 
 COPY . /go/src/github.com/onepeerlabs/w3kipedia
 
-RUN cd cmd/indexer && go build -o indexer && mv indexer ../../indexer
-ENTRYPOINT ["./indexer"]
+RUN cd cmd/uploader && go build -o uploader && mv uploader ../../uploader
+ENTRYPOINT ["./uploader"]

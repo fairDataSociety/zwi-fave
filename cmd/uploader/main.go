@@ -14,11 +14,6 @@ import (
 	swagger "github.com/onepeerlabs/w3kipedia/pkg/go-client"
 )
 
-type kv struct {
-	Key   string
-	Value int
-}
-
 var (
 	zimPath    = flag.String("zim", "", "zim file location")
 	fave       = flag.String("fave", "http://localhost:1234/v1", "FaVe API endpoint")
@@ -56,7 +51,6 @@ func main() {
 	indexes := make(map[string]interface{})
 	indexes["title"] = "string"
 	indexes["fullURL"] = "string"
-
 	msg, resp, err := client.DefaultApi.FaveCreateCollection(context.Background(), swagger.Collection{Name: *collection, Indexes: indexes})
 	if err != nil {
 		log.Fatal(err, resp.StatusCode, msg)
@@ -65,7 +59,7 @@ func main() {
 		log.Fatal("failed to create collection")
 	}
 	fmt.Println(*collection, "collection created")
-	// process documents
+
 	var documents = make([]swagger.Document, 0)
 
 	// open zim
@@ -74,6 +68,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// read the zim file
 	z.ListTitlesPtrIterator(func(idx uint32) {
 		a, err := z.ArticleAtURLIdx(idx)
 		if err != nil || a.EntryType == zim.DeletedEntry {
@@ -104,12 +99,14 @@ func main() {
 			html := p.Sanitize(string(data))
 			props["content"] = data
 
+			// Tokenize the article content
 			text, err := html2text.FromString(html, html2text.Options{TextOnly: true})
 			if err != nil {
 				log.Fatal(err.Error())
 			}
 			props["rawText"] = text
 		} else {
+			// process other files
 			props["content"] = data
 		}
 
@@ -126,6 +123,7 @@ func main() {
 		}
 		props["redirectURL"] = redirectURL
 
+		// Process the documents to be stored on FaVe
 		doc := swagger.Document{
 			Id:         uuid.New().String(),
 			Properties: props,
@@ -133,6 +131,7 @@ func main() {
 		documents = append(documents, doc)
 	})
 
+	// upload the documents on FaVe
 	rqst := swagger.AddDocumentsRequest{
 		Documents:         documents,
 		Name:              *collection,
