@@ -2,23 +2,21 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
-	swagger "github.com/onepeerlabs/w3kipedia/pkg/go-client"
+	faveApi "github.com/onepeerlabs/w3kipedia/pkg/fave_api"
 )
 
 var (
-	client *swagger.APIClient
+	client *faveApi.APIClient
 )
 
 func init() {
-	cfg := swagger.NewConfiguration()
+	cfg := faveApi.NewConfiguration()
 	cfg.BasePath = *fave
-	client = swagger.NewAPIClient(cfg)
+	client = faveApi.NewAPIClient(cfg)
 }
 
 type ArticleIndex struct {
@@ -49,8 +47,7 @@ func handleCachedResponse(cr *CachedResponse, w http.ResponseWriter, r *http.Req
 		log.Printf("404 %s\n", r.URL.Path)
 		http.NotFound(w, r)
 	} else if cr.ResponseType == DataResponse {
-		log.Printf("200 %s\n", r.URL.Path)
-		w.Header().Set("Content-Type", cr.MimeType)
+		w.Header().Set("Content-Type", "text/markdown; charset=UTF-8")
 		// 15 days
 		w.Header().Set("Cache-control", "public, max-age=1350000")
 		_, err := w.Write(cr.Data)
@@ -68,51 +65,35 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 		handleCachedResponse(cr, w, r)
 		return
 	} else {
-		d, resp, err := client.DefaultApi.DocumentsGet(context.Background(), "fullURL", url, *collection)
+		d, resp, err := client.DefaultApi.FaveGetDocuments(context.Background(), "id", url, *collection)
 		if err != nil {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			return
 		}
-
 		if resp.StatusCode != 200 {
 			cache.Add(url, CachedResponse{ResponseType: NoResponse})
 			return
 		}
-		d.Properties["fullURL"] = url
-		mime := fmt.Sprintf("%v", d.Properties["mimeType"])
-		entryType := d.Properties["entryType"]
-		redirect := fmt.Sprintf("%v", d.Properties["redirect"])
-
-		if entryType == fmt.Sprintf("%d", RedirectEntry) && redirect != "" {
-			cache.Add(url, CachedResponse{
-				ResponseType: RedirectResponse,
-				Data:         []byte(redirect),
-			})
-			if cr, iscached := cacheLookup(url); iscached {
-				handleCachedResponse(cr, w, r)
-			}
-			return
-		}
-
-		if err != nil {
-			cache.Add(url, CachedResponse{ResponseType: NoResponse})
-		} else {
-			data, err := base64.StdEncoding.DecodeString(d.Properties["content"].(string))
-			if err != nil {
-				cache.Add(url, CachedResponse{ResponseType: NoResponse})
-				return
-			}
-
-			if err != nil {
-				cache.Add(url, CachedResponse{ResponseType: NoResponse})
-			} else {
-				cache.Add(url, CachedResponse{
-					ResponseType: DataResponse,
-					Data:         data,
-					MimeType:     mime,
-				})
-			}
-		}
+		props := *d.Properties
+		props["title"] = url
+		//mime := fmt.Sprintf("%v", d.Properties["mimeType"])
+		//entryType := d.Properties["entryType"]
+		//redirect := fmt.Sprintf("%v", d.Properties["redirect"])
+		//
+		//if entryType == fmt.Sprintf("%d", RedirectEntry) && redirect != "" {
+		//	cache.Add(url, CachedResponse{
+		//		ResponseType: RedirectResponse,
+		//		Data:         []byte(redirect),
+		//	})
+		//	if cr, iscached := cacheLookup(url); iscached {
+		//		handleCachedResponse(cr, w, r)
+		//	}
+		//	return
+		//}
+		cache.Add(url, CachedResponse{
+			ResponseType: DataResponse,
+			Data:         []byte(props["rawText"].(string)),
+		})
 		// look again in the cache for the same entry
 		if cr, iscached := cacheLookup(url); iscached {
 			handleCachedResponse(cr, w, r)
@@ -122,10 +103,11 @@ func wikiHandler(w http.ResponseWriter, r *http.Request) {
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.FormValue("search_data")
-	nr := swagger.NearestDocumentsRequest{
+	nr := faveApi.NearestDocumentsRequest{
 		Text:     q,
 		Name:     *collection,
 		Distance: 1,
+		Limit:    4,
 	}
 	nResp, _, err := client.DefaultApi.FaveGetNearestDocuments(context.Background(), nr)
 	if err != nil {
@@ -139,12 +121,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 		for _, h := range nResp.Documents {
 			a := &ArticleIndex{}
-			a.Title = h.Properties["title"].(string)
+			props := *h.Properties
+			a.Title = props["title"].(string)
 
 			l = append(l, map[string]string{
-				"Score": strconv.FormatFloat(h.Properties["distance"].(float64), 'f', 1, 64),
+				"Score": strconv.FormatFloat(props["distance"].(float64), 'f', 1, 64),
 				"Title": a.Title,
-				"URL":   "/wiki/" + h.Properties["fullURL"].(string),
+				"URL":   "/wiki/" + h.Id,
 			})
 
 		}
