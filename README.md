@@ -8,7 +8,7 @@ It has two components
 
 #### Uploader: 
 
-[Uploader](./cmd/uploader/README.md) can read Wikipedia OpenZip format [snapshots](https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/) and upload data to FaVe, ultimately storing content on [swarm](https://www.ethswarm.org/).
+[Uploader](./cmd/uploader/README.md) can read [ZWI](https://docs.encyclosphere.org/#/zwi-format) format and upload data to FaVe, ultimately storing content on [swarm](https://www.ethswarm.org/).
 
 #### Server:
 

@@ -1,25 +1,54 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 
-	zim "github.com/akhenakh/gozim"
 	"github.com/google/uuid"
-	"github.com/jaytaylor/html2text"
-	"github.com/microcosm-cc/bluemonday"
-	swagger "github.com/onepeerlabs/w3kipedia/pkg/go-client"
+	swagger "github.com/onepeerlabs/w3kipedia/pkg/fave_api"
+	stripmd "github.com/writeas/go-strip-markdown/v2"
 )
 
 var (
-	zimPath    = flag.String("zim", "", "zim file location")
+	zwiPath    = flag.String("zwi", "", "directory that contains zwi files")
 	fave       = flag.String("fave", "http://localhost:1234/v1", "FaVe API endpoint")
 	collection = flag.String("collection", "", "Collection name to store content in FaVe")
 	help       = flag.Bool("help", false, "print help")
 )
+
+type Metadata struct {
+	ZWIversion float64  `json:"ZWIversion"`
+	Title      string   `json:"Title"`
+	ShortTitle string   `json:"ShortTitle"`
+	Topics     []string `json:"Topics"`
+	Lang       string   `json:"Lang"`
+	Content    struct {
+		ArticleHTML     string `json:"article.html"`
+		ArticleWikitext string `json:"article.wikitext"`
+		ArticleTxt      string `json:"article.txt"`
+	} `json:"Content"`
+	Primary          string   `json:"Primary"`
+	Revisions        []any    `json:"Revisions"`
+	Publisher        string   `json:"Publisher"`
+	CreatorNames     []any    `json:"CreatorNames"`
+	ContributorNames []any    `json:"ContributorNames"`
+	LastModified     string   `json:"LastModified"`
+	TimeCreated      string   `json:"TimeCreated"`
+	Categories       []string `json:"Categories"`
+	Rating           []int    `json:"Rating"`
+	Description      string   `json:"Description"`
+	Comment          string   `json:"Comment"`
+	License          string   `json:"License"`
+	GeneratorName    string   `json:"GeneratorName"`
+	SourceURL        string   `json:"SourceURL"`
+}
 
 func main() {
 
@@ -29,8 +58,8 @@ func main() {
 		return
 	}
 
-	if zimPath == nil || *zimPath == "" {
-		log.Fatal("please input zim location")
+	if zwiPath == nil || *zwiPath == "" {
+		log.Fatal("please input location for zwi files")
 	}
 
 	if fave == nil || *fave == "" {
@@ -40,7 +69,7 @@ func main() {
 	if collection == nil || *collection == "" {
 		log.Fatal("please input collection name")
 	}
-
+	fmt.Println(*zwiPath, *fave, *collection)
 	// create FaVe client
 	cfg := swagger.NewConfiguration()
 	cfg.BasePath = *fave
@@ -48,12 +77,12 @@ func main() {
 	fmt.Println("client created")
 
 	// create collection
-	indexes := make(map[string]interface{})
-	indexes["title"] = "string"
-	indexes["fullURL"] = "string"
+	indexes := []swagger.Index{
+		{FieldName: "title", FieldType: "string"},
+	}
 	msg, resp, err := client.DefaultApi.FaveCreateCollection(context.Background(), swagger.Collection{Name: *collection, Indexes: indexes})
 	if err != nil {
-		log.Fatal(err, resp.StatusCode, msg)
+		log.Fatal(err, resp, msg)
 	}
 	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		log.Fatal("failed to create collection")
@@ -62,84 +91,89 @@ func main() {
 
 	var documents = make([]swagger.Document, 0)
 
-	// open zim
-	z, err := zim.NewReader(*zimPath, false)
+	//get zwi file lists
+	entries, err := os.ReadDir(*zwiPath)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Error opening zwi source file:", err)
+		return
 	}
+	for _, entry := range entries {
+		fmt.Println("File:", entry.Name())
 
-	// read the zim file
-	z.ListTitlesPtrIterator(func(idx uint32) {
-		a, err := z.ArticleAtURLIdx(idx)
-		if err != nil || a.EntryType == zim.DeletedEntry {
-			return
-		}
-
-		redirectURL := ""
-		data, err := a.Data()
+		zipFile, err := zip.OpenReader(filepath.Join(*zwiPath, entry.Name()))
 		if err != nil {
-			log.Fatal(err.Error())
+			fmt.Println("Error opening ZIP file:", err)
+			continue
 		}
-		if len(data) == 0 {
-			return
-		}
-		title := a.Title
-		if title == "" {
-			title = filepath.Base(a.FullURL())
-		}
-		var props = make(swagger.PropertySchema, 0)
-		props["title"] = title
-		props["namespace"] = string(a.Namespace)
-		props["fullURL"] = a.FullURL()
-		props["mimeType"] = a.MimeType()
-		props["entryType"] = fmt.Sprintf("%d", a.EntryType)
+		defer zipFile.Close()
 
-		if a.MimeType() == "text/html" {
-			p := bluemonday.StripTagsPolicy()
-			html := p.Sanitize(string(data))
-			props["content"] = data
-
-			// Tokenize the article content
-			text, err := html2text.FromString(html, html2text.Options{TextOnly: true})
-			if err != nil {
-				log.Fatal(err.Error())
+		var (
+			article  string
+			metadata *Metadata
+		)
+		var props = make(swagger.Property)
+		for _, file := range zipFile.File {
+			if file.Name == "article.txt" || file.Name == "metadata.json" {
+				buffer, err := getContent(file)
+				if err != nil {
+					fmt.Println("Error reading file:", err)
+					continue
+				}
+				if file.Name == "article.txt" {
+					props["rawText"] = string(buffer)
+					article = stripmd.Strip(string(buffer))
+				} else {
+					metadata = &Metadata{}
+					err = json.Unmarshal(buffer, metadata)
+					if err != nil {
+						fmt.Println("Error unmarshalling JSON:", err)
+						continue
+					}
+				}
 			}
-			props["rawText"] = text
-		} else {
-			// process other files
-			props["content"] = data
 		}
 
-		if a.EntryType == zim.RedirectEntry {
-			ridx, err := a.RedirectIndex()
-			if err != nil {
-				return
-			}
-			ra, err := z.ArticleAtURLIdx(ridx)
-			if err != nil {
-				return
-			}
-			redirectURL = ra.FullURL()
+		if article == "" {
+			log.Fatal("article.txt not found")
 		}
-		props["redirectURL"] = redirectURL
+		if metadata == nil {
+			log.Fatal("metadata.json not found in zwi file", entry.Name())
+		}
 
-		// Process the documents to be stored on FaVe
+		props["title"] = metadata.Title
+		props["content"] = article
+
 		doc := swagger.Document{
 			Id:         uuid.New().String(),
-			Properties: props,
+			Properties: &props,
 		}
 		documents = append(documents, doc)
-	})
+	}
 
 	// upload the documents on FaVe
 	rqst := swagger.AddDocumentsRequest{
-		Documents:         documents,
-		Name:              *collection,
-		PropertiesToIndex: []string{"rawText"},
+		Documents:             documents,
+		Name:                  *collection,
+		PropertiesToVectorize: []string{"content"},
 	}
 	okResp, resp, err := client.DefaultApi.FaveAddDocuments(context.Background(), rqst)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	fmt.Println(okResp, resp.StatusCode)
+}
+
+func getContent(file *zip.File) ([]byte, error) {
+	fileReader, err := file.Open()
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return nil, err
+	}
+	defer fileReader.Close()
+	buffer, err := io.ReadAll(fileReader)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return nil, err
+	}
+	return buffer, nil
 }

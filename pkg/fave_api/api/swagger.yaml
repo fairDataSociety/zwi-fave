@@ -1,0 +1,497 @@
+openapi: 3.0.1
+info:
+  title: fave
+  contact:
+    name: fave
+    url: https://github.com/fairDataSociety/FaVe
+    email: sabyasachi@datafund.io
+  version: 0.0.0-prealpha
+externalDocs:
+  url: https://github.com/fairDataSociety/FaVe
+servers:
+- url: /v1
+tags:
+- name: fave
+  description: Everything about your fave
+paths:
+  /:
+    get:
+      description: Home. Discover the REST API
+      operationId: fave.root
+      responses:
+        "200":
+          description: fave is alive and ready to serve content
+          content: {}
+  /collections:
+    get:
+      description: Get all collections.
+      operationId: fave.getCollections
+      responses:
+        "200":
+          description: All collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Collection'
+                x-content-type: application/json
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      description: Create a new collection.
+      operationId: fave.createCollection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Collection'
+        required: true
+      responses:
+        "200":
+          description: collection added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OKResponse'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-codegen-request-body-name: body
+  /collections/{collection}:
+    delete:
+      description: Delete a collection.
+      operationId: fave.deleteCollection
+      parameters:
+      - name: collection
+        in: path
+        description: Collection name
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: collection removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OKResponse'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /documents:
+    get:
+      description: Retrieve a document based on query parameters
+      operationId: fave.getDocuments
+      parameters:
+      - name: property
+        in: query
+        description: The property to filter the document by
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: value
+        in: query
+        description: The value of the property to filter the document by
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: collection
+        in: query
+        description: The collection to use for this query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Document not found
+          content: {}
+    post:
+      description: Add documents into a collection.
+      operationId: fave.addDocuments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDocumentsRequest'
+        required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OKResponse'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-codegen-request-body-name: body
+  /nearest-documents:
+    post:
+      description: Get nearest documents for a collection.
+      operationId: fave.getNearestDocuments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NearestDocumentsRequest'
+        required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearestDocumentsResponse'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-codegen-request-body-name: body
+  /nearest-documents-by-vector:
+    post:
+      description: Get nearest documents for a collection.
+      operationId: fave.getNearestDocumentsByVector
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NearestDocumentsByVectorRequest'
+        required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearestDocumentsResponse'
+        "400":
+          description: Malformed request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized or invalid credentials.
+          content: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: "Request body is well-formed (i.e., syntactically correct),\
+            \ but semantically erroneous."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: An error has occurred while trying to fulfill the request.
+            Most likely the ErrorResponse will contain more information about the
+            error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-codegen-request-body-name: body
+components:
+  schemas:
+    OKResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      description: An ok response given by FaVe end-points.
+      example:
+        message: message
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorResponse_error'
+      description: An error response given by FaVe end-points.
+    Collection:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the collection
+        indexes:
+          type: array
+          description: The indexes of the collection for fairOS-dfs document store.
+          items:
+            $ref: '#/components/schemas/Index'
+      example:
+        indexes:
+        - fieldName: fieldName
+          fieldType: fieldType
+        - fieldName: fieldName
+          fieldType: fieldType
+        name: name
+    Index:
+      type: object
+      properties:
+        fieldName:
+          type: string
+          description: The filed name to index
+        fieldType:
+          type: string
+          description: "Type of the field to index. Types can be \"string\", \"number\"\
+            , \"map\", \"list\""
+      description: This is an object for specifying which fields to index in fairOS
+        document store while Collection creation
+      example:
+        fieldName: fieldName
+        fieldType: fieldType
+    Property:
+      type: object
+      description: "This is an open object, with OpenAPI Specification 3.0 this will\
+        \ be more detailed."
+    Document:
+      type: object
+      properties:
+        properties:
+          $ref: '#/components/schemas/Property'
+        id:
+          type: string
+          description: ID of the Object.
+          format: uuid
+      example:
+        id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        properties: {}
+    AddDocumentsRequest:
+      type: object
+      properties:
+        documents:
+          type: array
+          description: The actual list of Objects.
+          items:
+            $ref: '#/components/schemas/Document'
+        name:
+          type: string
+          description: Name of the collection
+        propertiesToVectorize:
+          type: array
+          description: Array of property names to be vectorized.
+          items:
+            type: string
+      description: Add the documents to the collection.
+    NearestDocumentsRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          description: The text to search for.
+        name:
+          type: string
+          description: Name of the collection
+        distance:
+          type: number
+          format: float
+        limit:
+          type: number
+          format: int
+      description: Get the nearest documents from the collection by text
+    NearestDocumentsByVectorRequest:
+      type: object
+      properties:
+        vector:
+          type: array
+          description: The vector to search for
+          items:
+            type: number
+            format: float
+        name:
+          type: string
+          description: Name of the collection
+        distance:
+          type: number
+          format: float
+        limit:
+          type: number
+          format: int
+      description: Get the nearest documents from the collection by vector
+    NearestDocumentsResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          description: The actual list of Objects.
+          items:
+            $ref: '#/components/schemas/Document'
+        name:
+          type: string
+          description: Name of the collection
+      description: Response for the Nearest documents request
+      example:
+        documents:
+        - id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          properties: {}
+        - id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          properties: {}
+        name: name
+    ErrorResponse_error:
+      type: object
+      properties:
+        message:
+          type: string
+x-original-swagger-version: "2.0"
