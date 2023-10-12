@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"net/http"
 	"strconv"
@@ -14,6 +15,20 @@ var (
 )
 
 func init() {
+	flag.Parse()
+	if *help {
+		flag.Usage()
+		return
+	}
+
+	if fave == nil || *fave == "" {
+		log.Fatal("please input FaVe api endpoint")
+	}
+
+	if collection == nil || *collection == "" {
+		log.Fatal("please input collection name")
+	}
+
 	cfg := faveApi.NewConfiguration()
 	cfg.BasePath = *fave
 	client = faveApi.NewAPIClient(cfg)

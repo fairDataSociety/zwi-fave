@@ -49,20 +49,6 @@ var (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	flag.Parse()
-	if *help {
-		flag.Usage()
-		return
-	}
-
-	if fave == nil || *fave == "" {
-		log.Fatal("please input FaVe api endpoint")
-	}
-
-	if collection == nil || *collection == "" {
-		log.Fatal("please input collection name")
-	}
-
 	tpls, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		log.Fatal(err)
