@@ -30,7 +30,7 @@ type CachedResponse struct {
 
 var (
 	port       = flag.Int("port", -1, "port to listen to, read HOST env if not specified, default to 8080 otherwise")
-	fave       = flag.String("fave", "http://localhost:1234/v1", "FaVe API endpoint")
+	fave       = flag.String("fave", "", "FaVe API endpoint")
 	collection = flag.String("collection", "", "Collection name to store content in FaVe")
 	help       = flag.Bool("help", false, "print help")
 

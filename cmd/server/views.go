@@ -40,11 +40,6 @@ type ArticleIndex struct {
 	MimeType string
 }
 
-const (
-	ArticlesPerPage        = 16
-	RedirectEntry   uint16 = 0xffff
-)
-
 func cacheLookup(url string) (*CachedResponse, bool) {
 	if v, ok := cache.Get(url); ok {
 		c := v.(CachedResponse)
