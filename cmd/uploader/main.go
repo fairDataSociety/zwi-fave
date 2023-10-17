@@ -24,30 +24,12 @@ var (
 )
 
 type Metadata struct {
-	ZWIversion float64  `json:"ZWIversion"`
-	Title      string   `json:"Title"`
-	ShortTitle string   `json:"ShortTitle"`
-	Topics     []string `json:"Topics"`
-	Lang       string   `json:"Lang"`
-	Content    struct {
+	Title   string `json:"Title"`
+	Content struct {
 		ArticleHTML     string `json:"article.html"`
 		ArticleWikitext string `json:"article.wikitext"`
 		ArticleTxt      string `json:"article.txt"`
 	} `json:"Content"`
-	Primary          string   `json:"Primary"`
-	Revisions        []any    `json:"Revisions"`
-	Publisher        string   `json:"Publisher"`
-	CreatorNames     []any    `json:"CreatorNames"`
-	ContributorNames []any    `json:"ContributorNames"`
-	LastModified     string   `json:"LastModified"`
-	TimeCreated      string   `json:"TimeCreated"`
-	Categories       []string `json:"Categories"`
-	Rating           []int    `json:"Rating"`
-	Description      string   `json:"Description"`
-	Comment          string   `json:"Comment"`
-	License          string   `json:"License"`
-	GeneratorName    string   `json:"GeneratorName"`
-	SourceURL        string   `json:"SourceURL"`
 }
 
 func main() {
@@ -107,42 +89,45 @@ func main() {
 		}
 		defer zipFile.Close()
 
-		var (
-			article  string
-			metadata *Metadata
-		)
 		var props = make(swagger.Property)
 		for _, file := range zipFile.File {
-			if file.Name == "article.txt" || file.Name == "metadata.json" {
+
+			if file.Name == "article.txt" || file.Name == "metadata.json" || file.Name == "article.html" {
 				buffer, err := getContent(file)
 				if err != nil {
 					fmt.Println("Error reading file:", err)
 					continue
 				}
-				if file.Name == "article.txt" {
+				switch file.Name {
+				case "article.html":
+					props["html"] = string(buffer)
+				case "article.txt":
 					props["rawText"] = string(buffer)
-					article = stripmd.Strip(string(buffer))
-				} else {
-					metadata = &Metadata{}
+					props["article"] = stripmd.Strip(string(buffer))
+				case "metadata.json":
+					metadata := &Metadata{}
 					err = json.Unmarshal(buffer, metadata)
 					if err != nil {
 						fmt.Println("Error unmarshalling JSON:", err)
 						continue
 					}
+					props["title"] = metadata.Title
 				}
 			}
 		}
 
-		if article == "" {
-			log.Fatal("article.txt not found")
+		if props["article"] == "" {
+			log.Println("article.txt not found")
+			continue
 		}
-		if metadata == nil {
-			log.Fatal("metadata.json not found in zwi file", entry.Name())
+		if props["title"] == "" {
+			log.Println("metadata.json not found in zwi file", entry.Name())
+			continue
 		}
-
-		props["title"] = metadata.Title
-		props["content"] = article
-
+		if props["html"] == "" {
+			log.Println("article.html not found in zwi file", entry.Name())
+			continue
+		}
 		doc := swagger.Document{
 			Id:         uuid.New().String(),
 			Properties: &props,
@@ -154,7 +139,7 @@ func main() {
 	rqst := swagger.AddDocumentsRequest{
 		Documents:             documents,
 		Name:                  *collection,
-		PropertiesToVectorize: []string{"content"},
+		PropertiesToVectorize: []string{"article"},
 	}
 	okResp, resp, err := client.DefaultApi.FaveAddDocuments(context.Background(), rqst)
 	if err != nil {
