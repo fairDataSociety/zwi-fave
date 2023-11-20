@@ -10,10 +10,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/google/uuid"
 	swagger "github.com/onepeerlabs/w3kipedia/pkg/fave_api"
-	stripmd "github.com/writeas/go-strip-markdown/v2"
 )
 
 var (
@@ -103,7 +103,16 @@ func main() {
 					props["html"] = string(buffer)
 				case "article.txt":
 					props["rawText"] = string(buffer)
-					props["article"] = stripmd.Strip(string(buffer))
+					re := regexp.MustCompile(`\|.*`)
+					filteredText := re.ReplaceAllString(string(buffer), "")
+
+					re2 := regexp.MustCompile(`(?m)^This editable Main Article.*$`)
+					filteredText = re2.ReplaceAllString(filteredText, "")
+
+					re3 := regexp.MustCompile(`(?m)^This article.*$`)
+					filteredText = re3.ReplaceAllString(filteredText, "")
+
+					props["article"] = filteredText
 				case "metadata.json":
 					metadata := &Metadata{}
 					err = json.Unmarshal(buffer, metadata)

@@ -1,11 +1,10 @@
 module github.com/onepeerlabs/w3kipedia
 
-go 1.20
+go 1.21
 
 require (
 	github.com/google/uuid v1.3.1
 	github.com/hashicorp/golang-lru v1.0.2
-	github.com/writeas/go-strip-markdown/v2 v2.1.1
 	golang.org/x/oauth2 v0.13.0
 )
 
