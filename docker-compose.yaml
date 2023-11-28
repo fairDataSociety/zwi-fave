@@ -1,0 +1,46 @@
+version: '3'
+services:
+  vectorizer:
+    command:
+      - --model-name
+      - sentence-transformers/all-mpnet-base-v2
+    image: fairdatasociety/huggingface-vectorizer:latest
+    ports:
+      - 9876:9876
+    restart: on-failure:0
+
+  fave:
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - '1234'
+      - --write-timeout
+      - 1500m
+      - --read-timeout
+      - 1500m
+    image: fairdatasociety/fave:latest
+    ports:
+      - 1234:1234
+    restart: on-failure:0
+    environment:
+      BEE_API: <BEE_URL>
+      RPC_API: <RPC_ENDPOINT_FOR_ENS>
+      STAMP_ID: <STAMP_ID>
+      USER: <USER_NAME>
+      PASSWORD: <PASSWORD>
+      POD: <POD_NAME>
+      VECTORIZER_URL: http://vectorizer:9876
+      VERBOSE: true
+  zwi-fave:
+    command:
+      - -collection
+      - <COLLECTION_NAME>
+      - -port
+      - '8526'
+      - -fave
+      - http://fave:1234/v1
+    image: fairdatasociety/zwi-fave:latest
+    ports:
+      - 8526:8526
+    restart: on-failure:0
