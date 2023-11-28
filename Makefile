@@ -4,7 +4,7 @@ GOLANGCI_LINT_VERSION ?= v1.30.0
 
 .PHONY: lint
 lint: linter
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --skip-dirs zwis,pkg/fave_api
 
 .PHONY: linter
 linter:
