@@ -1,0 +1,94 @@
+project_name: zwi-fave
+
+release:
+  prerelease: auto
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=1
+before:
+  hooks:
+    - go mod download
+builds:
+  - id: zwi-fave-linux-amd64
+    main: ./cmd/server
+    binary: zwi-fave
+    goos:
+      - linux
+    goarch:
+      - amd64
+    env:
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    flags:
+      - -v
+      - -trimpath
+    ldflags:
+      - -s -w
+  - id: zwi-fave-linux-arm64
+    main: ./cmd/server
+    binary: zwi-fave
+    goos:
+      - linux
+    goarch:
+      - arm64
+    env:
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    flags:
+      - -v
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - id: binary-version
+    name_template: '{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    format: binary
+  - id: binary
+    name_template: '{{ .Binary }}_{{ .Os }}_{{ .Arch }}'
+    format: binary
+  - id: zip
+    name_template: '{{ .Binary }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+    format: zip
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-snapshot"
+dockers:
+  - image_templates:
+      - "fairdatasociety/zwi-fave:v{{ .Version }}-amd64"
+    use: buildx
+    ids:
+      - zwi-fave-linux-amd64
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+  - image_templates:
+      - "fairdatasociety/zwi-fave:v{{ .Version }}-arm64"
+    use: buildx
+    ids:
+      - zwi-fave-linux-arm64
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+docker_manifests:
+  - name_template: fairdatasociety/zwi-fave:v{{ .Major }}.{{ .Minor }}.{{ .Patch }}{{ with .Prerelease }}-{{ . }}{{ end }}
+    image_templates:
+      - fairdatasociety/zwi-fave:v{{ .Version }}-amd64
+      - fairdatasociety/zwi-fave:v{{ .Version }}-arm64
+  - name_template: fairdatasociety/zwi-fave:latest
+    image_templates:
+      - fairdatasociety/zwi-fave:v{{ .Version }}-amd64
+      - fairdatasociety/zwi-fave:v{{ .Version }}-arm64

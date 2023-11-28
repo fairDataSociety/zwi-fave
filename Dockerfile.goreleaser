@@ -1,0 +1,11 @@
+FROM debian:bullseye
+
+RUN apt-get update
+RUN apt-get install -y ca-certificates
+RUN update-ca-certificates
+
+EXPOSE 8526
+
+COPY zwi-fave /usr/local/bin/zwi-fave
+
+ENTRYPOINT ["zwi-fave"]
