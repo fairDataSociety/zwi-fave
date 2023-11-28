@@ -2,3 +2,7 @@
 store
 **generate.sh
 /dist
+
+# goreleaser environment resources
+.release-env
+.docker-creds
